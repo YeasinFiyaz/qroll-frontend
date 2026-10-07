@@ -43,5 +43,12 @@
     "transformIgnorePatterns": [
       "node_modules/(?!axios)/"
     ]
-  }
+  },
+  "description": "QRoll — smart QR-code attendance for classes (React frontend)",
+  "homepage": "https://helloqroll.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YeasinFiyaz/qroll-frontend.git"
+  },
+  "license": "MIT"
 }
