@@ -538,3 +538,7 @@ select.input { appearance: none; cursor: pointer;
 .search { max-width: 260px; }
 .not-found { min-height: 70vh; display: grid; place-items: center; text-align: center; }
 .not-found h1 { font-size: 72px; font-weight: 900; background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+/* ---------- Selection ---------- */
+.table tbody tr.selected { background: var(--brand-soft); }
+.table input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--brand); cursor: pointer; }

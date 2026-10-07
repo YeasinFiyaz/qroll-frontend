@@ -75,6 +75,8 @@ function AdminUsers() {
   const [modal, setModal] = useState(null); // 'create' | user object
   const [removing, setRemoving] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState(() => new Set());
+  const [bulkConfirm, setBulkConfirm] = useState(false);
 
   const { data: users, loading, error, reload } = useFetch(
     () => API.get('/admin/users').then((r) => r.data), []
@@ -93,6 +95,26 @@ function AdminUsers() {
   }, [users, q, role]);
 
   const counts = useMemo(() => (users || []).reduce((a, u) => ({ ...a, [u.role]: (a[u.role] || 0) + 1 }), {}), [users]);
+
+  const selectable = rows.filter((u) => u.user_id !== me.id);
+  const allSelected = selectable.length > 0 && selectable.every((u) => selected.has(u.user_id));
+  const toggle = (id) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(selectable.map((u) => u.user_id)));
+
+  const bulkRemove = async () => {
+    setBusy(true);
+    try {
+      const res = await API.post('/admin/users/bulk-delete', { ids: [...selected] });
+      toast(res.data.message);
+      setSelected(new Set());
+      setBulkConfirm(false);
+      reload();
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const remove = async () => {
     setBusy(true);
@@ -126,6 +148,16 @@ function AdminUsers() {
         </div>
       </div>
 
+      {selected.size > 0 && (
+        <div className="alert alert-warning" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          <span><b>{selected.size}</b> user{selected.size === 1 ? '' : 's'} selected</span>
+          <span className="row">
+            <button className="btn btn-sm btn-secondary" onClick={() => setSelected(new Set())}>Clear</button>
+            <button className="btn btn-sm btn-danger" onClick={() => setBulkConfirm(true)}><Icon name="trash" size={14} /> Delete selected</button>
+          </span>
+        </div>
+      )}
+
       <div className="card mb-2">
         <div className="row wrap">
           <div className="input-wrap" style={{ flex: '1 1 240px' }}>
@@ -151,10 +183,14 @@ function AdminUsers() {
           ) : (
             <div className="table-wrap">
               <table className="table">
-                <thead><tr><th>User</th><th>Role</th><th>Activity</th><th>Joined</th><th /></tr></thead>
+                <thead><tr>
+                  <th style={{ width: 36 }}><input type="checkbox" aria-label="Select all" checked={allSelected} onChange={toggleAll} /></th>
+                  <th>User</th><th>Role</th><th>Activity</th><th>Joined</th><th />
+                </tr></thead>
                 <tbody>
                   {rows.map((u) => (
-                    <tr key={u.user_id}>
+                    <tr key={u.user_id} className={selected.has(u.user_id) ? 'selected' : undefined}>
+                      <td>{u.user_id !== me.id && <input type="checkbox" aria-label={`Select ${u.name}`} checked={selected.has(u.user_id)} onChange={() => toggle(u.user_id)} />}</td>
                       <td><div className="bold">{u.name}{u.user_id === me.id && <span className="muted xs"> (you)</span>}</div><div className="muted xs">{u.email}</div></td>
                       <td><span className={`badge ${ROLE_TONE[u.role]}`}>{u.role}</span></td>
                       <td className="small muted nowrap">
@@ -183,6 +219,14 @@ function AdminUsers() {
           user={modal === 'create' ? null : modal}
           onClose={() => setModal(null)}
           onSaved={(msg) => { setModal(null); toast(msg); reload(); }}
+        />
+      )}
+      {bulkConfirm && (
+        <ConfirmModal
+          title={`Delete ${selected.size} selected user${selected.size === 1 ? '' : 's'}?`}
+          text="Each selected account is removed together with everything it owns: a teacher's courses, sessions and attendance records, or a student's enrollments and check-ins. This cannot be undone."
+          confirmLabel={`Delete ${selected.size}`} danger busy={busy}
+          onConfirm={bulkRemove} onClose={() => setBulkConfirm(false)}
         />
       )}
       {removing && (
