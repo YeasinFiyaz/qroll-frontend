@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import Icon from '../components/Icon';
 import StartSession from '../components/StartSession';
 import SessionRoster from '../components/SessionRoster';
@@ -90,9 +90,52 @@ function EditCourseModal({ course, onClose, onSaved }) {
   );
 }
 
+function DeleteCourseModal({ course, onClose, onDeleted }) {
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const matches = code.trim().toUpperCase() === course.course_code.toUpperCase();
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!matches) return;
+    setBusy(true);
+    setError('');
+    try {
+      const res = await API.delete(`/courses/${course.course_id}`, { data: { confirm_code: code.trim() } });
+      onDeleted(res.data);
+    } catch (err) {
+      setError(errorMessage(err, 'Could not delete the course'));
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal title="Delete this course?" onClose={onClose}>
+      <form onSubmit={submit}>
+        <Alert type="warning">
+          This permanently deletes <b>{course.course_name}</b> together with all of its
+          sessions, attendance records and student enrollments. This cannot be undone.
+        </Alert>
+        <Alert>{error}</Alert>
+        <div className="field">
+          <label htmlFor="confirm-code">Type <b>{course.course_code}</b> to confirm</label>
+          <input id="confirm-code" className="input mono" value={code} onChange={(e) => setCode(e.target.value)} placeholder={course.course_code} autoFocus autoComplete="off" />
+        </div>
+        <div className="row" style={{ justifyContent: 'flex-end' }}>
+          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
+          <button type="submit" className="btn btn-danger" disabled={!matches || busy}>
+            {busy ? <Spinner /> : <Icon name="trash" />} Delete course
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 function CourseDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const toast = useToast();
+  const [deleting, setDeleting] = useState(false);
   const [tab, setTab] = useState('students');
   const [query, setQuery] = useState('');
   const [removing, setRemoving] = useState(null);
@@ -155,6 +198,7 @@ function CourseDetail() {
           <div className="row mt-1">
             <span className="badge brand">{course.course_code}</span>
             <button className="icon-btn" style={{ width: 30, height: 30 }} onClick={() => setEditing(true)} title="Edit course"><Icon name="edit" size={15} /></button>
+            <button className="icon-btn danger" style={{ width: 30, height: 30 }} onClick={() => setDeleting(true)} title="Delete course"><Icon name="trash" size={15} /></button>
           </div>
           <h1 className="mt-1">{course.course_name}</h1>
         </div>
@@ -261,6 +305,13 @@ function CourseDetail() {
         <EditCourseModal course={course} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); toast('Course updated'); reload(); }} />
       )}
       {rosterId && <SessionRoster sessionId={rosterId} onClose={() => setRosterId(null)} />}
+      {deleting && (
+        <DeleteCourseModal
+          course={course}
+          onClose={() => setDeleting(false)}
+          onDeleted={(data) => { toast(data.message || 'Course deleted'); navigate('/courses', { replace: true }); }}
+        />
+      )}
     </main>
   );
 }
