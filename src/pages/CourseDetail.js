@@ -8,6 +8,8 @@ import {
   useFetch, useToast, fmtDateTime, fmtPct, downloadCSV,
 } from '../components/ui';
 import API, { errorMessage } from '../api/axios';
+import { useAuth } from '../auth';
+import { useFeatures } from '../features';
 
 function EnrollCard({ courseId, onDone }) {
   const toast = useToast();
@@ -59,16 +61,22 @@ function EnrollCard({ courseId, onDone }) {
   );
 }
 
-function EditCourseModal({ course, onClose, onSaved }) {
+function EditCourseModal({ course, onClose, onSaved, isAdmin }) {
   const [name, setName] = useState(course.course_name);
   const [code, setCode] = useState(course.course_code);
+  const [teacherId, setTeacherId] = useState(String(course.teacher_id));
+  const [teachers, setTeachers] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  React.useEffect(() => {
+    if (isAdmin) API.get('/admin/teachers').then((r) => setTeachers(r.data)).catch(() => {});
+  }, [isAdmin]);
   const save = async (e) => {
     e.preventDefault();
     setBusy(true);
     try {
-      await API.put(`/courses/${course.course_id}`, { course_name: name, course_code: code });
+      if (isAdmin) await API.put(`/admin/courses/${course.course_id}`, { course_name: name, course_code: code, teacher_id: Number(teacherId) });
+      else await API.put(`/courses/${course.course_id}`, { course_name: name, course_code: code });
       onSaved();
     } catch (err) {
       setError(errorMessage(err));
@@ -81,6 +89,15 @@ function EditCourseModal({ course, onClose, onSaved }) {
         <Alert>{error}</Alert>
         <div className="field"><label>Course name</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} required /></div>
         <div className="field"><label>Course code</label><input className="input" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} required /></div>
+        {isAdmin && (
+          <div className="field">
+            <label>Teacher</label>
+            <select className="input" value={teacherId} onChange={(e) => setTeacherId(e.target.value)}>
+              {teachers.map((t) => <option key={t.user_id} value={t.user_id}>{t.name} — {t.email}</option>)}
+            </select>
+            <span className="hint">Changing the teacher moves the course, its sessions and students to them.</span>
+          </div>
+        )}
         <div className="row" style={{ justifyContent: 'flex-end' }}>
           <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" disabled={busy}>{busy && <Spinner />} Save</button>
@@ -135,6 +152,9 @@ function CourseDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const { user } = useAuth();
+  const { isOn } = useFeatures();
+  const isAdmin = user?.role === 'admin';
   const [deleting, setDeleting] = useState(false);
   const [tab, setTab] = useState('students');
   const [query, setQuery] = useState('');
@@ -198,9 +218,10 @@ function CourseDetail() {
           <div className="row mt-1">
             <span className="badge brand">{course.course_code}</span>
             <button className="icon-btn" style={{ width: 30, height: 30 }} onClick={() => setEditing(true)} title="Edit course"><Icon name="edit" size={15} /></button>
-            <button className="icon-btn danger" style={{ width: 30, height: 30 }} onClick={() => setDeleting(true)} title="Delete course"><Icon name="trash" size={15} /></button>
+            {isOn('teacher.can_delete_course') && <button className="icon-btn danger" style={{ width: 30, height: 30 }} onClick={() => setDeleting(true)} title="Delete course"><Icon name="trash" size={15} /></button>}
           </div>
           <h1 className="mt-1">{course.course_name}</h1>
+          {isAdmin && course.teacher_name && <p className="text-2 small mt-1"><Icon name="user" size={13} /> Taught by {course.teacher_name}</p>}
         </div>
         <Link to="/reports" state={{ courseId: course.course_id }} className="btn btn-secondary"><Icon name="bars" /> Full report</Link>
       </div>
@@ -302,7 +323,7 @@ function CourseDetail() {
         />
       )}
       {editing && (
-        <EditCourseModal course={course} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); toast('Course updated'); reload(); }} />
+        <EditCourseModal course={course} isAdmin={isAdmin} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); toast('Course updated'); reload(); }} />
       )}
       {rosterId && <SessionRoster sessionId={rosterId} onClose={() => setRosterId(null)} />}
       {deleting && (

@@ -23,5 +23,5 @@ test('sends each role to its home page', () => {
   expect(homeFor(null)).toBe('/login');
   expect(homeFor({ role: 'student' })).toBe('/student');
   expect(homeFor({ role: 'teacher' })).toBe('/dashboard');
-  expect(homeFor({ role: 'admin' })).toBe('/dashboard');
+  expect(homeFor({ role: 'admin' })).toBe('/admin');
 });

@@ -7,6 +7,7 @@ import {
   useFetch, useToast, downloadCSV, fmtDateTime, fmtPct, fmtDate,
 } from '../components/ui';
 import API, { errorMessage } from '../api/axios';
+import { useFeatures } from '../features';
 
 const iso = (d) => {
   const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
@@ -23,6 +24,7 @@ const RANGES = [
 function Reports() {
   const location = useLocation();
   const toast = useToast();
+  const { isOn } = useFeatures();
   const { data: courses, loading: coursesLoading, error: coursesError } = useFetch(
     () => API.get('/courses/my-courses').then((r) => r.data), []
   );
@@ -149,7 +151,7 @@ function Reports() {
               <div className="field" style={{ marginBottom: 0 }}>
                 <label>Course</label>
                 <select className="input" value={courseId} onChange={(e) => setCourseId(e.target.value)}>
-                  {courses.map((c) => <option key={c.course_id} value={c.course_id}>{c.course_code} — {c.course_name}</option>)}
+                  {courses.map((c) => <option key={c.course_id} value={c.course_id}>{c.course_code} — {c.course_name}{c.teacher_name ? ` (${c.teacher_name})` : ''}</option>)}
                 </select>
               </div>
               <div className="field" style={{ marginBottom: 0 }}>
@@ -194,7 +196,7 @@ function Reports() {
                     </div>
                     <button className={`chip${onlyLow ? ' on' : ''}`} onClick={() => setOnlyLow(!onlyLow)}>Only below {THRESHOLD}%</button>
                     <button className="btn btn-secondary btn-sm" onClick={exportCSV} disabled={!report.length}><Icon name="download" size={15} /> Export CSV</button>
-                    <button className="btn btn-danger-soft btn-sm" onClick={() => setConfirmAlerts(true)} disabled={!summary.low}><Icon name="mail" size={15} /> Email alerts</button>
+                    {isOn('teacher.can_email_alerts') && <button className="btn btn-danger-soft btn-sm" onClick={() => setConfirmAlerts(true)} disabled={!summary.low}><Icon name="mail" size={15} /> Email alerts</button>}
                   </div>
                 </div>
                 <div style={{ height: 14 }} />

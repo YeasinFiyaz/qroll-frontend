@@ -6,9 +6,11 @@ import {
 } from '../components/ui';
 import API, { errorMessage } from '../api/axios';
 import { useAuth } from '../auth';
+import { useFeatures } from '../features';
 
 function StudentHome() {
   const { user } = useAuth();
+  const { isOn } = useFeatures();
   const { data, loading, error, reload } = useFetch(async () => {
     const [courses, history] = await Promise.all([
       API.get('/courses/enrolled'),
@@ -31,9 +33,9 @@ function StudentHome() {
         <div className="row wrap" style={{ justifyContent: 'space-between', gap: 18 }}>
           <div>
             <h1>{greeting()}, {first} 👋</h1>
-            <p>In class? Scan your teacher’s QR to check in.</p>
+            <p>{isOn('student.page_scan') ? 'In class? Scan your teacher’s QR to check in.' : 'Welcome to QRoll.'}</p>
           </div>
-          <Link to="/scan" className="btn btn-white btn-lg"><Icon name="scan" /> Scan QR</Link>
+          {isOn('student.page_scan') && <Link to="/scan" className="btn btn-white btn-lg"><Icon name="scan" /> Scan QR</Link>}
         </div>
       </section>
 
@@ -42,14 +44,14 @@ function StudentHome() {
 
       {data && (
         <>
-          {low.length > 0 && (
+          {isOn('student.low_warning') && low.length > 0 && (
             <Alert type="warning">
               Your attendance is below {THRESHOLD}% in {low.map((c) => c.course_code).join(', ')}. Try not to miss the next classes.
             </Alert>
           )}
 
           <div className="grid grid-main">
-            <div className="card">
+            {isOn('student.my_courses') && <div className="card">
               <div className="card-head"><h3><Icon name="book" /> My courses</h3></div>
               {data.courses.length === 0 ? (
                 <Empty
@@ -74,21 +76,21 @@ function StudentHome() {
                   ))}
                 </div>
               )}
-            </div>
+            </div>}
 
             <div className="stack">
-              <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+              {isOn('student.overall') && <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
                 <Ring value={overall === null ? null : Number(overall.toFixed(1))} size={124} label="overall" />
                 <div>
                   <h3 style={{ fontSize: 16 }}>Overall attendance</h3>
                   <p className="muted small mt-1">{totals.attended} of {totals.total} classes attended across {data.courses.length} course{data.courses.length === 1 ? '' : 's'}.</p>
                 </div>
-              </div>
+              </div>}
 
-              <div className="card">
+              {isOn('student.recent_checkins') && <div className="card">
                 <div className="card-head">
                   <h3><Icon name="history" /> Recent check-ins</h3>
-                  <Link to="/history" className="small bold">See all →</Link>
+                  {isOn('student.page_history') && <Link to="/history" className="small bold">See all →</Link>}
                 </div>
                 {data.history.length === 0 ? (
                   <p className="muted small">No check-ins yet.</p>
@@ -105,7 +107,7 @@ function StudentHome() {
                     ))}
                   </div>
                 )}
-              </div>
+              </div>}
             </div>
           </div>
         </>

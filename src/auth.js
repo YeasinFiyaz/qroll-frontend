@@ -31,6 +31,7 @@ function persist(token, user) {
 
 export function homeFor(user) {
   if (!user) return '/login';
+  if (user.role === 'admin') return '/admin';
   return user.role === 'student' ? '/student' : '/dashboard';
 }
 
@@ -67,8 +68,10 @@ export function AuthProvider({ children }) {
     if (!token) return;
     API.get('/auth/me')
       .then((res) => {
+        // A fresh token comes back when the role changed (e.g. promoted to admin).
+        if (res.data.token) persist(res.data.token, res.data.user);
+        else localStorage.setItem('user', JSON.stringify(res.data.user));
         setUser(res.data.user);
-        localStorage.setItem('user', JSON.stringify(res.data.user));
       })
       .catch((err) => { if (err.response?.status === 401) logout(); });
   }, [token, logout]);

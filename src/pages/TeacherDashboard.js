@@ -8,11 +8,14 @@ import {
 } from '../components/ui';
 import API, { errorMessage } from '../api/axios';
 import { useAuth } from '../auth';
+import { useFeatures } from '../features';
 
 function TeacherDashboard() {
   const { user } = useAuth();
+  const { isOn } = useFeatures();
   const navigate = useNavigate();
   const [rosterId, setRosterId] = useState(null);
+  const isAdmin = user?.role === 'admin';
 
   const { data, loading, error, reload } = useFetch(async () => {
     const [overview, courses, active, history, low] = await Promise.all([
@@ -36,9 +39,11 @@ function TeacherDashboard() {
         <div className="row wrap" style={{ justifyContent: 'space-between', gap: 18 }}>
           <div>
             <h1>{greeting()}, {first} 👋</h1>
-            <p>Start a QR session, watch students check in live, and track attendance across your courses.</p>
+            <p>{isAdmin ? 'Viewing every course and session on QRoll as administrator.' : 'Start a QR session, watch students check in live, and track attendance across your courses.'}</p>
           </div>
-          <Link to="/courses" className="btn btn-white"><Icon name="plus" /> New course</Link>
+          {isOn('teacher.page_courses') && isOn('teacher.can_create_course') && (
+            <Link to="/courses" className="btn btn-white"><Icon name="plus" /> New course</Link>
+          )}
         </div>
       </section>
 
@@ -47,17 +52,17 @@ function TeacherDashboard() {
 
       {data && (
         <>
-          <div className="stats">
+          {isOn('teacher.stats') && <div className="stats">
             <Stat icon="book" tone="brand" value={data.overview.courses} label="Courses" />
             <Stat icon="users" tone="info" value={data.overview.students} label="Students" />
             <Stat icon="qr" tone="warning" value={data.overview.sessions} label="Sessions held" />
             <Stat icon="chart" tone="success" value={data.overview.avg_attendance === null ? '—' : fmtPct(data.overview.avg_attendance)} label="Avg. attendance" />
             <Stat icon="checkCircle" tone="success" value={data.overview.scans_today} label="Check-ins today" />
-          </div>
+          </div>}
 
           <div className="grid grid-main">
             <div className="stack">
-              {data.active.length > 0 && (
+              {isOn('teacher.running_sessions') && data.active.length > 0 && (
                 <div className="card">
                   <div className="card-head">
                     <h3><span className="badge success"><span className="live-dot" /> LIVE</span> Running sessions</h3>
@@ -77,7 +82,7 @@ function TeacherDashboard() {
                 </div>
               )}
 
-              <div className="card">
+              {isOn('teacher.start_attendance') && <div className="card">
                 <div className="card-head"><h3><Icon name="play" /> Start attendance</h3></div>
                 {data.courses.length === 0 ? (
                   <Empty
@@ -88,9 +93,9 @@ function TeacherDashboard() {
                 ) : (
                   <StartSession courses={data.courses} />
                 )}
-              </div>
+              </div>}
 
-              <div className="card flush">
+              {isOn('teacher.recent_sessions') && <div className="card flush">
                 <div className="card-head">
                   <h3><Icon name="history" /> Recent sessions</h3>
                   <Link to="/reports" className="small bold">All reports →</Link>
@@ -121,13 +126,13 @@ function TeacherDashboard() {
                     </table>
                   </div>
                 )}
-              </div>
+              </div>}
             </div>
 
             <div className="stack">
-              <div className="card">
+              {isOn('teacher.my_courses') && <div className="card">
                 <div className="card-head">
-                  <h3><Icon name="book" /> My courses</h3>
+                  <h3><Icon name="book" /> {isAdmin ? 'All courses' : 'My courses'}</h3>
                   <Link to="/courses" className="small bold">Manage →</Link>
                 </div>
                 {data.courses.length === 0 ? (
@@ -139,16 +144,16 @@ function TeacherDashboard() {
                         <span className="badge brand">{c.course_code}</span>
                         <div className="grow">
                           <div className="title clamp2">{c.course_name}</div>
-                          <div className="meta">{c.student_count} students · {c.session_count} sessions</div>
+                          <div className="meta truncate">{isAdmin && c.teacher_name ? `${c.teacher_name} · ` : ''}{c.student_count} students · {c.session_count} sessions</div>
                         </div>
                         <Icon name="arrowRight" size={16} className="muted" />
                       </Link>
                     ))}
                   </div>
                 )}
-              </div>
+              </div>}
 
-              <div className="card">
+              {isOn('teacher.needs_attention') && <div className="card">
                 <div className="card-head">
                   <h3><Icon name="alert" style={{ color: 'var(--danger)' }} /> Needs attention</h3>
                   <span className="sub">below {data.overview.threshold}%</span>
@@ -169,7 +174,7 @@ function TeacherDashboard() {
                     ))}
                   </div>
                 )}
-              </div>
+              </div>}
             </div>
           </div>
         </>

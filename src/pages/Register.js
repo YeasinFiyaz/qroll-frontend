@@ -5,10 +5,14 @@ import { Alert, Spinner } from '../components/ui';
 import { errorMessage } from '../api/axios';
 import { useAuth } from '../auth';
 import AuthLayout from './AuthLayout';
+import { useFeatures } from '../features';
 
 function Register() {
   const { register } = useAuth();
+  const { isOn, loaded } = useFeatures();
   const location = useLocation();
+  const teacherAllowed = isOn('global.registration_teacher');
+  const signupOpen = isOn('global.registration');
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '', role: 'student' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -40,14 +44,15 @@ function Register() {
       <h1>Create your account</h1>
       <p className="sub">It takes less than a minute.</p>
       <Alert>{error}</Alert>
+      {loaded && !signupOpen && <Alert type="warning">Sign-up is currently closed. Please contact your administrator for an account.</Alert>}
 
-      <form onSubmit={handleRegister}>
+      <form onSubmit={handleRegister} style={loaded && !signupOpen ? { opacity: .5, pointerEvents: 'none' } : undefined}>
         <div className="field">
           <label>I am a</label>
           <div className="role-pick">
             {[
               { v: 'student', icon: 'cap', t: 'Student', d: 'Scan QR to mark attendance' },
-              { v: 'teacher', icon: 'users', t: 'Teacher', d: 'Create courses & sessions' },
+              ...(teacherAllowed ? [{ v: 'teacher', icon: 'users', t: 'Teacher', d: 'Create courses & sessions' }] : []),
             ].map((r) => (
               <button
                 type="button" key={r.v} className={`role-opt${form.role === r.v ? ' on' : ''}`}
