@@ -79,8 +79,8 @@ export function AuthProvider({ children }) {
   useEffect(() => onUnauthorized(logout), [logout]);
 
   const value = useMemo(
-    () => ({ token, user, isTeacher: user && user.role !== 'student', login, register, logout }),
-    [token, user, login, register, logout]
+    () => ({ token, user, isTeacher: user && user.role !== 'student', login, register, logout, applySession }),
+    [token, user, login, register, logout, applySession]
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -9,6 +9,8 @@ import Navbar from './components/Navbar';
 import Backdrop from './components/Backdrop';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Forgot from './pages/Forgot';
+import Reset from './pages/Reset';
 import TeacherDashboard from './pages/TeacherDashboard';
 import LiveSession from './pages/LiveSession';
 import Courses from './pages/Courses';
@@ -89,6 +91,8 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
               <Route path="/register" element={<GuestOnly><Register /></GuestOnly>} />
+              <Route path="/forgot" element={<GuestOnly><Forgot /></GuestOnly>} />
+              <Route path="/reset" element={<GuestOnly><Reset /></GuestOnly>} />
 
               <Route element={<RequireAuth role="admin" />}>
                 <Route path="/admin" element={<AdminDashboard />} />

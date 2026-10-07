@@ -67,6 +67,9 @@ function Login() {
         <button className="btn btn-primary btn-lg btn-block mt-1" type="submit" disabled={busy}>
           {busy ? <><Spinner /> Logging in…</> : <>Log in <Icon name="arrowRight" /></>}
         </button>
+        <p className="small" style={{ textAlign: 'right', marginTop: 10 }}>
+          <Link to="/forgot">Forgot password?</Link>
+        </p>
       </form>
 
       <p className="switch">
