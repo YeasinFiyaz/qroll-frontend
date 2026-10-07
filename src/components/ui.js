@@ -51,6 +51,14 @@ export function initials(name = '') {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
 }
 
+// First name for greetings, skipping titles like "Dr." / "Md." / "Prof."
+const TITLES = /^(dr|md|mr|mrs|ms|miss|prof|professor|engr|eng|sk|sheikh|hon|sir|mohd|mohammad|muhammad)\.?$/i;
+export function firstName(name = '') {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const pick = parts.find((p) => !TITLES.test(p.replace(/[.,]/g, '')));
+  return (pick || parts[0] || '').replace(/[.,]+$/, '');
+}
+
 export function greeting() {
   const h = new Date().getHours();
   if (h < 12) return 'Good morning';
@@ -118,6 +126,11 @@ export function PctCell({ value, total }) {
       <b style={{ color: TONE_COLOR[tone] }}>{has ? fmtPct(value) : '—'}</b>
     </div>
   );
+}
+
+export function PctPill({ value, total }) {
+  const has = Number(total) > 0;
+  return <span className={`pct-pill ${pctTone(value, has)}`}>{has ? fmtPct(value) : '—'}</span>;
 }
 
 export function Ring({ value, size = 120, stroke = 11, label, tone }) {

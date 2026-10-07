@@ -221,7 +221,7 @@ function CourseDetail() {
                   <tbody>
                     {sessions.map((s) => (
                       <tr key={s.session_id} className="clickable" onClick={() => setRosterId(s.session_id)}>
-                        <td>{fmtDateTime(s.created_at)}</td>
+                        <td className="nowrap">{fmtDateTime(s.created_at)}</td>
                         <td>{s.is_live
                           ? <Link to={`/session/${s.session_id}`} onClick={(e) => e.stopPropagation()} className="badge success"><span className="live-dot" /> Live</Link>
                           : <span className="badge">Ended</span>}</td>

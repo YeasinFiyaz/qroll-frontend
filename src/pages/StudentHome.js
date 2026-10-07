@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Icon from '../components/Icon';
 import {
-  Alert, Empty, Loading, PctCell, Ring, THRESHOLD, useFetch, greeting, timeAgo, fmtTime,
+  Alert, Empty, Loading, PctPill, Progress, Ring, THRESHOLD, useFetch, greeting, firstName, pctTone, timeAgo, fmtTime,
 } from '../components/ui';
 import API, { errorMessage } from '../api/axios';
 import { useAuth } from '../auth';
@@ -23,14 +23,14 @@ function StudentHome() {
   );
   const overall = totals.total ? (totals.attended * 100) / totals.total : null;
   const low = (data?.courses || []).filter((c) => c.total_sessions > 0 && Number(c.percentage) < THRESHOLD);
-  const firstName = user?.name?.split(' ')[0] || '';
+  const first = firstName(user?.name);
 
   return (
     <main className="page">
       <section className="hero">
         <div className="row wrap" style={{ justifyContent: 'space-between', gap: 18 }}>
           <div>
-            <h1>{greeting()}, {firstName} 👋</h1>
+            <h1>{greeting()}, {first} 👋</h1>
             <p>In class? Scan your teacher’s QR to check in.</p>
           </div>
           <Link to="/scan" className="btn btn-white btn-lg"><Icon name="scan" /> Scan QR</Link>
@@ -60,13 +60,16 @@ function StudentHome() {
               ) : (
                 <div className="list">
                   {data.courses.map((c) => (
-                    <div key={c.course_id} className="list-item" style={{ flexWrap: 'wrap' }}>
-                      <span className="badge brand">{c.course_code}</span>
-                      <div className="grow" style={{ minWidth: 140 }}>
-                        <div className="title truncate">{c.course_name}</div>
-                        <div className="meta">{c.teacher_name} · {c.attended_sessions}/{c.total_sessions} classes</div>
+                    <div key={c.course_id} className="list-item">
+                      <div className="grow">
+                        <div className="row" style={{ gap: 8 }}>
+                          <span className="badge brand">{c.course_code}</span>
+                          <span className="title clamp2">{c.course_name}</span>
+                        </div>
+                        <div className="meta truncate">{c.teacher_name} · {c.attended_sessions}/{c.total_sessions} classes</div>
+                        <div className="mini-progress"><Progress value={c.total_sessions > 0 ? c.percentage : 0} tone={pctTone(c.percentage, c.total_sessions > 0)} /></div>
                       </div>
-                      <div style={{ width: 170 }}><PctCell value={c.percentage} total={c.total_sessions} /></div>
+                      <PctPill value={c.percentage} total={c.total_sessions} />
                     </div>
                   ))}
                 </div>

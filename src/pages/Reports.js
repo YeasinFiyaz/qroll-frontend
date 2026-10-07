@@ -145,7 +145,7 @@ function Reports() {
       {courses && courses.length > 0 && (
         <>
           <div className="card mb-2">
-            <div className="grid" style={{ gridTemplateColumns: 'minmax(220px, 1.4fr) repeat(2, minmax(140px, 1fr))', gap: 14 }}>
+            <div className="filters">
               <div className="field" style={{ marginBottom: 0 }}>
                 <label>Course</label>
                 <select className="input" value={courseId} onChange={(e) => setCourseId(e.target.value)}>
@@ -232,7 +232,7 @@ function Reports() {
                       <tbody>
                         {visibleSessions.map((s) => (
                           <tr key={s.session_id} className="clickable" onClick={() => setRosterId(s.session_id)}>
-                            <td>{fmtDateTime(s.created_at)}</td>
+                            <td className="nowrap">{fmtDateTime(s.created_at)}</td>
                             <td>{s.is_live ? <span className="badge success"><span className="live-dot" /> Live</span> : <span className="badge">Ended</span>}</td>
                             <td style={{ minWidth: 170 }}>
                               <div className="pct-cell">

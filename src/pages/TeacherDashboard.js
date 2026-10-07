@@ -4,7 +4,7 @@ import Icon from '../components/Icon';
 import StartSession from '../components/StartSession';
 import SessionRoster from '../components/SessionRoster';
 import {
-  Stat, Empty, Loading, Alert, Progress, PctCell, useFetch, greeting, fmtPct, timeAgo, fmtTime,
+  Stat, Empty, Loading, Alert, Progress, PctPill, useFetch, greeting, firstName, pctTone, fmtPct, timeAgo, fmtTime,
 } from '../components/ui';
 import API, { errorMessage } from '../api/axios';
 import { useAuth } from '../auth';
@@ -28,14 +28,14 @@ function TeacherDashboard() {
     };
   }, []);
 
-  const firstName = user?.name?.split(' ')[0] || '';
+  const first = firstName(user?.name);
 
   return (
     <main className="page">
       <section className="hero">
         <div className="row wrap" style={{ justifyContent: 'space-between', gap: 18 }}>
           <div>
-            <h1>{greeting()}, {firstName} 👋</h1>
+            <h1>{greeting()}, {first} 👋</h1>
             <p>Start a QR session, watch students check in live, and track attendance across your courses.</p>
           </div>
           <Link to="/courses" className="btn btn-white"><Icon name="plus" /> New course</Link>
@@ -107,7 +107,7 @@ function TeacherDashboard() {
                           return (
                             <tr key={s.session_id} className="clickable" onClick={() => setRosterId(s.session_id)}>
                               <td><b>{s.course_code}</b> <span className="muted small">{s.course_name}</span></td>
-                              <td className="muted small">{timeAgo(s.created_at)}</td>
+                              <td className="muted small nowrap">{timeAgo(s.created_at)}</td>
                               <td style={{ minWidth: 160 }}>
                                 <div className="pct-cell">
                                   <Progress value={pct} />
@@ -138,7 +138,7 @@ function TeacherDashboard() {
                       <Link key={c.course_id} to={`/courses/${c.course_id}`} className="list-item" style={{ color: 'inherit' }}>
                         <span className="badge brand">{c.course_code}</span>
                         <div className="grow">
-                          <div className="title truncate">{c.course_name}</div>
+                          <div className="title clamp2">{c.course_name}</div>
                           <div className="meta">{c.student_count} students · {c.session_count} sessions</div>
                         </div>
                         <Icon name="arrowRight" size={16} className="muted" />
@@ -160,10 +160,11 @@ function TeacherDashboard() {
                     {data.low.map((s, i) => (
                       <div key={i} className="list-item">
                         <div className="grow">
-                          <div className="title truncate">{s.name}</div>
-                          <div className="meta">{s.course_code} · {s.attended_sessions}/{s.total_sessions} classes</div>
+                          <div className="title truncate" title={s.name}>{s.name}</div>
+                          <div className="meta truncate">{s.course_code} · {s.attended_sessions}/{s.total_sessions} classes</div>
+                          <div className="mini-progress"><Progress value={s.percentage} tone={pctTone(s.percentage)} /></div>
                         </div>
-                        <div style={{ width: 120 }}><PctCell value={s.percentage} total={s.total_sessions} /></div>
+                        <PctPill value={s.percentage} total={s.total_sessions} />
                       </div>
                     ))}
                   </div>
