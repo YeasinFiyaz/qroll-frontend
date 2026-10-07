@@ -20,6 +20,11 @@ scan it with their phone, and attendance is recorded instantly.
 - Home page with per-course attendance percentage and overall ring
 - Full check-in history with CSV export
 
+**Admin**
+- Site overview, manage every user (create / edit role / reset password / delete) and every course (create for a teacher, reassign, delete)
+- Feature switches: hide any dashboard panel or page, or block actions, for teachers and students — admins always see everything
+- Admin accounts are created by listing the email in the API's `ADMIN_EMAILS`
+
 **General**
 - Works on phones (bottom navigation) and desktops, light and dark mode
 - Keeps working while a sleeping API wakes up (auto-retry + status banner)
@@ -34,9 +39,11 @@ hand-written CSS with design tokens in `src/index.css` and components in `src/Ap
 src/
   api/axios.js        API client with retry, auth header and server-status events
   auth.js             login state (context) and role-based home routes
+  features.js         feature switches set by the admin (useFeatures / isOn)
   components/         Navbar, Icon set, Backdrop art, shared UI (modals, toasts, tables…)
   pages/              Login, Register, TeacherDashboard, LiveSession, Courses, CourseDetail,
-                      Reports, StudentHome, Scanner, History, Profile
+                      Reports, StudentHome, Scanner, History, Profile, Disabled,
+                      AdminDashboard, AdminUsers, AdminSettings
 ```
 
 ## Run locally
