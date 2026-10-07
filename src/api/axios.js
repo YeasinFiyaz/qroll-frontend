@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export const API_URL = (process.env.REACT_APP_API_URL || 'https://qroll-backend-dgwe.onrender.com/api/v1')
+export const API_URL = (process.env.REACT_APP_API_URL || 'https://qroll-backend-five.vercel.app/api/v1')
   .replace(/\/$/, '');
 
 const API = axios.create({
