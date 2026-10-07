@@ -1,61 +1,80 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import Icon from './Icon';
+import { useAuth } from '../auth';
+import { ServerBanner, initials } from './ui';
 
-function Navbar() {
-  const navigate = useNavigate();
-  const name = localStorage.getItem('name');
-  const role = localStorage.getItem('role');
+const TEACHER_LINKS = [
+  { to: '/dashboard', label: 'Dashboard', icon: 'home' },
+  { to: '/courses', label: 'Courses', icon: 'book' },
+  { to: '/reports', label: 'Reports', icon: 'bars' },
+];
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/');
-  };
+const STUDENT_LINKS = [
+  { to: '/student', label: 'Home', icon: 'home' },
+  { to: '/scan', label: 'Scan', icon: 'scan', fab: true },
+  { to: '/history', label: 'History', icon: 'history' },
+];
 
+export function Brand({ to = '/' }) {
   return (
-    <div style={styles.navbar}>
-      <div style={styles.left}>
-        <span style={styles.logo}>QRoll</span>
-        <span style={styles.role}>{role}</span>
-      </div>
-      <div style={styles.right}>
-        <span style={styles.name}>👤 {name}</span>
-        {(role === 'teacher' || role === 'admin') && (
-          <>
-            <button style={styles.btn} onClick={() => navigate('/dashboard')}>Dashboard</button>
-            <button style={styles.btn} onClick={() => navigate('/courses')}>Courses</button>
-            <button style={styles.btn} onClick={() => navigate('/reports')}>Reports</button>
-          </>
-        )}
-        <button style={styles.logout} onClick={handleLogout}>Logout</button>
-      </div>
-    </div>
+    <Link to={to} className="brand">
+      <span className="brand-mark"><Icon name="qr" size={19} stroke={2.4} /></span>
+      QRoll
+    </Link>
   );
 }
 
-const styles = {
-  navbar: {
-    display: 'flex', justifyContent: 'space-between',
-    alignItems: 'center', backgroundColor: '#1F3864',
-    padding: '12px 24px', color: '#fff',
-  },
-  left: { display: 'flex', alignItems: 'center', gap: '12px' },
-  right: { display: 'flex', alignItems: 'center', gap: '12px' },
-  logo: { fontSize: '22px', fontWeight: 'bold', color: '#fff' },
-  role: {
-    backgroundColor: '#2E75B6', padding: '2px 10px',
-    borderRadius: '12px', fontSize: '12px',
-  },
-  name: { fontSize: '14px' },
-  btn: {
-    backgroundColor: '#2E75B6', color: '#fff',
-    border: 'none', padding: '8px 16px',
-    borderRadius: '8px', cursor: 'pointer',
-  },
-  logout: {
-    backgroundColor: '#c0392b', color: '#fff',
-    border: 'none', padding: '8px 16px',
-    borderRadius: '8px', cursor: 'pointer',
-  },
-};
+function Navbar() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const isStudent = user?.role === 'student';
+  const links = isStudent ? STUDENT_LINKS : TEACHER_LINKS;
+
+  return (
+    <>
+      <ServerBanner />
+      <header className="topbar">
+        <div className="topbar-inner">
+          <Brand to={isStudent ? '/student' : '/dashboard'} />
+          <nav className="nav">
+            {links.map((l) => (
+              <NavLink key={l.to} to={l.to}>
+                <Icon name={l.icon} size={17} /> {l.label}
+              </NavLink>
+            ))}
+          </nav>
+          <div className="row">
+            <button className="user-chip" onClick={() => navigate('/profile')} title="Profile">
+              <span className="who"><b>{user?.name}</b><span>{user?.role}</span></span>
+              <span className="avatar">{initials(user?.name)}</span>
+            </button>
+            <button
+              className="icon-btn" title="Log out" aria-label="Log out"
+              onClick={() => { logout(); navigate('/login'); }}
+            >
+              <Icon name="logout" size={17} />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <nav className="bottom-nav">
+        {links.map((l) => (
+          <NavLink key={l.to} to={l.to} className={l.fab ? 'fab' : undefined}>
+            {l.fab
+              ? <span className="fab-circle"><Icon name={l.icon} size={24} /></span>
+              : <Icon name={l.icon} size={22} />}
+            <span>{l.label}</span>
+          </NavLink>
+        ))}
+        <NavLink to="/profile">
+          <Icon name="user" size={22} />
+          <span>Profile</span>
+        </NavLink>
+      </nav>
+    </>
+  );
+}
 
 export default Navbar;

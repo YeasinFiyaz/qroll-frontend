@@ -1,223 +1,117 @@
-import React, { useState, useEffect } from 'react';
-import Navbar from '../components/Navbar';
-import API from '../api/axios';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Icon from '../components/Icon';
+import { Alert, Empty, Loading, Modal, Spinner, useFetch, useToast, timeAgo } from '../components/ui';
+import API, { errorMessage } from '../api/axios';
 
-function Courses() {
-  const [courses, setCourses] = useState([]);
-  const [courseName, setCourseName] = useState('');
-  const [courseCode, setCourseCode] = useState('');
-  const [message, setMessage] = useState('');
+function CreateCourseModal({ onClose, onCreated }) {
+  const [name, setName] = useState('');
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [selectedCourse, setSelectedCourse] = useState(null);
-  const [studentEmail, setStudentEmail] = useState('');
-  const [enrollMsg, setEnrollMsg] = useState('');
-  const [students, setStudents] = useState([]);
 
-  useEffect(() => {
-    loadCourses();
-  }, []);
-
-  const loadCourses = async () => {
+  const submit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setBusy(true);
     try {
-      const res = await API.get('/courses/my-courses');
-      setCourses(res.data);
-    } catch (err) {}
-  };
-
-  const createCourse = async () => {
-    setMessage(''); setError('');
-    try {
-      await API.post('/courses/create', {
-        course_name: courseName,
-        course_code: courseCode,
-      });
-      setMessage('Course created successfully!');
-      setCourseName(''); setCourseCode('');
-      loadCourses();
+      const res = await API.post('/courses/create', { course_name: name.trim(), course_code: code.trim() });
+      onCreated(res.data.course_id);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create course');
+      setError(errorMessage(err, 'Failed to create course'));
+      setBusy(false);
     }
-  };
-
-  const enrollStudent = async (course_id) => {
-    setEnrollMsg('');
-    try {
-      const res = await API.post('/courses/enroll', { student_email: studentEmail, course_id });
-      setEnrollMsg(res.data.message);
-      setStudentEmail('');
-      loadStudents(course_id);
-    } catch (err) {
-      setEnrollMsg(err.response?.data?.error || 'Failed to enroll student');
-    }
-  };
-
-  const loadStudents = async (course_id) => {
-    try {
-      const res = await API.get(`/courses/${course_id}/students`);
-      setStudents(res.data);
-    } catch (err) {}
-  };
-
-  const selectCourse = (course) => {
-    setSelectedCourse(course);
-    setEnrollMsg('');
-    setStudentEmail('');
-    loadStudents(course.course_id);
   };
 
   return (
-    <div>
-      <Navbar />
-      <div style={styles.container}>
-        <h2 style={styles.heading}>Course Management</h2>
-
-        {/* Create Course */}
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Create New Course</h3>
-          <input
-            style={styles.input}
-            type="text"
-            placeholder="Course Name (e.g. Software Engineering)"
-            value={courseName}
-            onChange={(e) => setCourseName(e.target.value)}
-          />
-          <input
-            style={styles.input}
-            type="text"
-            placeholder="Course Code (e.g. CSE301)"
-            value={courseCode}
-            onChange={(e) => setCourseCode(e.target.value)}
-          />
-          <button style={styles.button} onClick={createCourse}>
-            Create Course
+    <Modal title="Create a new course" onClose={onClose}>
+      <form onSubmit={submit}>
+        <Alert>{error}</Alert>
+        <div className="field">
+          <label htmlFor="cname">Course name</label>
+          <input id="cname" className="input" placeholder="e.g. Software Engineering" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
+        </div>
+        <div className="field">
+          <label htmlFor="ccode">Course code</label>
+          <input id="ccode" className="input" placeholder="e.g. CSE301" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} required />
+          <span className="hint">Must be unique. Add a section if you teach several, e.g. CSE301-A.</span>
+        </div>
+        <div className="row" style={{ justifyContent: 'flex-end' }}>
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn btn-primary" disabled={busy}>
+            {busy ? <Spinner /> : <Icon name="plus" />} Create course
           </button>
-          {message && <p style={styles.success}>{message}</p>}
-          {error && <p style={styles.error}>{error}</p>}
         </div>
-
-        {/* My Courses */}
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>My Courses</h3>
-          {courses.length === 0 ? (
-            <p style={styles.hint}>No courses yet. Create one above!</p>
-          ) : (
-            courses.map((course) => (
-              <div
-                key={course.course_id}
-                style={{
-                  ...styles.courseRow,
-                  backgroundColor: selectedCourse?.course_id === course.course_id
-                    ? '#EEF6FB' : '#f9f9f9',
-                }}
-                onClick={() => selectCourse(course)}
-              >
-                <div>
-                  <b style={{ color: '#1F3864' }}>{course.course_name}</b>
-                  <span style={styles.badge}>{course.course_code}</span>
-                </div>
-                <span style={styles.hint}>ID: {course.course_id}</span>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Enroll Student */}
-        {selectedCourse && (
-          <div style={styles.card}>
-            <h3 style={styles.cardTitle}>
-              Enroll Student into {selectedCourse.course_name}
-            </h3>
-            <input
-              style={styles.input}
-              type="email"
-              placeholder="Student email address"
-              value={studentEmail}
-              onChange={(e) => setStudentEmail(e.target.value)}
-            />
-            <button
-              style={styles.button}
-              onClick={() => enrollStudent(selectedCourse.course_id)}
-            >
-              Enroll Student
-            </button>
-            {enrollMsg && (
-              <p style={enrollMsg.includes('success') ? styles.success : styles.error}>
-                {enrollMsg}
-              </p>
-            )}
-
-            {/* Enrolled Students List */}
-            {students.length > 0 && (
-              <>
-                <h4 style={{ color: '#2E75B6', marginTop: '20px' }}>
-                  Enrolled Students ({students.length})
-                </h4>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={styles.th}>Name</th>
-                      <th style={styles.th}>Email</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {students.map((s, i) => (
-                      <tr key={i} style={i % 2 === 0 ? styles.rowEven : styles.rowOdd}>
-                        <td style={styles.td}>{s.name}</td>
-                        <td style={styles.td}>{s.email}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 }
 
-const styles = {
-  container: { maxWidth: '680px', margin: '40px auto', padding: '0 20px' },
-  heading: { color: '#1F3864', marginBottom: '24px' },
-  card: {
-    backgroundColor: '#fff', padding: '24px',
-    borderRadius: '12px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-    marginBottom: '24px',
-  },
-  cardTitle: { color: '#2E75B6', marginBottom: '16px' },
-  input: {
-    width: '100%', padding: '10px', marginBottom: '12px',
-    borderRadius: '8px', border: '1px solid #ddd',
-    fontSize: '14px', boxSizing: 'border-box',
-  },
-  button: {
-    width: '100%', padding: '12px', backgroundColor: '#2E75B6',
-    color: '#fff', border: 'none', borderRadius: '8px',
-    fontSize: '15px', cursor: 'pointer',
-  },
-  success: { color: 'green', marginTop: '8px', fontWeight: 'bold' },
-  error: { color: 'red', marginTop: '8px' },
-  hint: { color: '#888', fontSize: '13px' },
-  courseRow: {
-    display: 'flex', justifyContent: 'space-between',
-    alignItems: 'center', padding: '12px 16px',
-    borderRadius: '8px', marginBottom: '8px',
-    cursor: 'pointer', border: '1px solid #eee',
-  },
-  badge: {
-    backgroundColor: '#2E75B6', color: '#fff',
-    padding: '2px 10px', borderRadius: '12px',
-    fontSize: '12px', marginLeft: '10px',
-  },
-  table: { width: '100%', borderCollapse: 'collapse', marginTop: '8px' },
-  th: {
-    backgroundColor: '#2E75B6', color: '#fff',
-    padding: '10px', textAlign: 'left', fontSize: '13px',
-  },
-  td: { padding: '10px', fontSize: '13px' },
-  rowEven: { backgroundColor: '#f9f9f9' },
-  rowOdd: { backgroundColor: '#fff' },
-};
+function Courses() {
+  const navigate = useNavigate();
+  const toast = useToast();
+  const [creating, setCreating] = useState(false);
+  const { data: courses, loading, error, reload } = useFetch(
+    () => API.get('/courses/my-courses').then((r) => r.data), []
+  );
+
+  return (
+    <main className="page">
+      <div className="page-head">
+        <div>
+          <div className="eyebrow">Teaching</div>
+          <h1>Courses</h1>
+          <p>Create courses, add students and open any course to run attendance.</p>
+        </div>
+        <button className="btn btn-primary" onClick={() => setCreating(true)}><Icon name="plus" /> New course</button>
+      </div>
+
+      {loading && <Loading />}
+      {error && <Alert>{errorMessage(error)} <button className="btn btn-sm btn-secondary" onClick={reload}>Retry</button></Alert>}
+
+      {courses && courses.length === 0 && (
+        <div className="card">
+          <Empty
+            icon="book" title="No courses yet"
+            text="Create your first course, then add students by email — or let them join by scanning your first QR."
+            action={<button className="btn btn-primary" onClick={() => setCreating(true)}><Icon name="plus" /> Create course</button>}
+          />
+        </div>
+      )}
+
+      {courses && courses.length > 0 && (
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+          {courses.map((c) => (
+            <div key={c.course_id} className="course-card" onClick={() => navigate(`/courses/${c.course_id}`)}>
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <span className="badge brand">{c.course_code}</span>
+                <Icon name="arrowRight" size={16} className="muted" />
+              </div>
+              <h3>{c.course_name}</h3>
+              <div className="foot">
+                <span><Icon name="users" size={15} /> {c.student_count} students</span>
+                <span><Icon name="qr" size={15} /> {c.session_count} sessions</span>
+              </div>
+              <div className="muted xs">
+                {c.last_session_at ? `Last session ${timeAgo(c.last_session_at)}` : 'No sessions yet'}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {creating && (
+        <CreateCourseModal
+          onClose={() => setCreating(false)}
+          onCreated={(id) => {
+            setCreating(false);
+            toast('Course created!');
+            navigate(`/courses/${id}`);
+          }}
+        />
+      )}
+    </main>
+  );
+}
 
 export default Courses;

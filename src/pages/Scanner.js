@@ -1,129 +1,208 @@
-import React, { useState } from 'react';
-import Navbar from '../components/Navbar';
-import API from '../api/axios';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import Icon from '../components/Icon';
+import { Alert, Spinner, fmtTime } from '../components/ui';
+import API, { errorMessage } from '../api/axios';
+
+const canDetect = typeof window !== 'undefined' && 'BarcodeDetector' in window;
+
+// Location is attached only if the student already allowed it — we never block on a prompt.
+async function quickLocation() {
+  try {
+    if (!navigator.geolocation || !navigator.permissions) return {};
+    const p = await navigator.permissions.query({ name: 'geolocation' });
+    if (p.state !== 'granted') return {};
+    return await new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => resolve({}),
+        { timeout: 2500, maximumAge: 60000 }
+      );
+    });
+  } catch (e) {
+    return {};
+  }
+}
 
 function Scanner() {
-  const [token, setToken] = useState('');
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
-  const [history, setHistory] = useState([]);
-  const [showHistory, setShowHistory] = useState(false);
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const linkToken = params.get('t');
 
-  const markAttendance = async () => {
-    setMessage(''); setError('');
+  const [result, setResult] = useState(null); // { ok, title, text }
+  const [busy, setBusy] = useState(false);
+  const [code, setCode] = useState('');
+  const [camOn, setCamOn] = useState(false);
+  const [camError, setCamError] = useState('');
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const loopRef = useRef(null);
+  const autoRan = useRef(false);
+
+  const stopCamera = useCallback(() => {
+    if (loopRef.current) clearTimeout(loopRef.current);
+    loopRef.current = null;
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setCamOn(false);
+  }, []);
+
+  useEffect(() => stopCamera, [stopCamera]);
+
+  const submit = useCallback(async (token) => {
+    if (!token) return;
+    setBusy(true);
+    setResult(null);
     try {
-      const res = await API.post('/attend/scan', { token });
-      setMessage(res.data.message);
-      setToken('');
+      const loc = await quickLocation();
+      const res = await API.post('/attend/scan', { token, ...loc });
+      setResult({ ok: true, title: 'You’re marked present!', text: res.data.message, time: res.data.marked_at, course: res.data.course_code });
+      if (navigator.vibrate) navigator.vibrate(120);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to mark attendance');
+      const status = err.response?.status;
+      setResult({
+        ok: status === 409,
+        already: status === 409,
+        title: status === 409 ? 'Already checked in' : status === 410 ? 'Session has ended' : 'Could not mark attendance',
+        text: errorMessage(err, 'Something went wrong, please try again'),
+      });
+    } finally {
+      setBusy(false);
+      setCode('');
+    }
+  }, []);
+
+  // Opened from a QR link (/scan?t=...): mark attendance straight away.
+  useEffect(() => {
+    if (linkToken && !autoRan.current) {
+      autoRan.current = true;
+      submit(linkToken);
+      navigate('/scan', { replace: true });
+    }
+  }, [linkToken, submit, navigate]);
+
+  const startCamera = async () => {
+    setCamError('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } }, audio: false,
+      });
+      streamRef.current = stream;
+      setCamOn(true);
+      const video = videoRef.current;
+      video.srcObject = stream;
+      await video.play();
+      // eslint-disable-next-line no-undef
+      const detector = new BarcodeDetector({ formats: ['qr_code'] });
+      const tick = async () => {
+        if (!streamRef.current) return;
+        try {
+          const codes = await detector.detect(video);
+          if (codes.length) {
+            stopCamera();
+            submit(codes[0].rawValue);
+            return;
+          }
+        } catch (e) { /* frame not ready */ }
+        loopRef.current = setTimeout(tick, 250);
+      };
+      tick();
+    } catch (err) {
+      stopCamera();
+      setCamError(err.name === 'NotAllowedError'
+        ? 'Camera permission was denied. Allow camera access in your browser settings, or use your phone’s camera app.'
+        : 'Could not open the camera on this device.');
     }
   };
 
-  const loadHistory = async () => {
-    try {
-      const res = await API.get('/attend/my-history');
-      setHistory(res.data);
-      setShowHistory(true);
-    } catch (err) {}
-  };
+  if (busy) {
+    return (
+      <main className="page narrow">
+        <div className="card result">
+          <div className="big-icon tone-brand"><Spinner large /></div>
+          <h2>Marking your attendance…</h2>
+          <p>Just a moment.</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (result) {
+    return (
+      <main className="page narrow">
+        <div className="card result">
+          <div className={`big-icon ${result.ok ? 'tone-success' : 'tone-danger'}`}>
+            <Icon name={result.ok ? 'check' : 'x'} size={46} stroke={3} />
+          </div>
+          <h2>{result.title}</h2>
+          <p>{result.text}</p>
+          {result.time && <p className="muted small">{fmtTime(result.time)} · {new Date(result.time).toLocaleDateString()}</p>}
+          <div className="row wrap mt-3" style={{ justifyContent: 'center' }}>
+            <Link to="/student" className="btn btn-primary"><Icon name="home" /> Go to home</Link>
+            <button className="btn btn-secondary" onClick={() => setResult(null)}><Icon name="scan" /> {result.ok ? 'Scan another' : 'Try again'}</button>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <div>
-      <Navbar />
-      <div style={styles.container}>
-        <h2 style={styles.heading}>Mark Attendance</h2>
-
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Enter Session Token</h3>
-          <p style={styles.hint}>
-            Ask your teacher for the session token or scan the QR code.
-          </p>
-          <input
-            style={styles.input}
-            type="text"
-            placeholder="Paste session token here"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-          />
-          <button style={styles.button} onClick={markAttendance}>
-            ✅ Mark Attendance
-          </button>
-          {message && <p style={styles.success}>{message}</p>}
-          {error && <p style={styles.error}>{error}</p>}
+    <main className="page narrow">
+      <div className="page-head">
+        <div>
+          <div className="eyebrow">Check in</div>
+          <h1>Scan attendance QR</h1>
+          <p>Point your camera at the QR code your teacher is showing.</p>
         </div>
+      </div>
 
-        <button style={styles.historyBtn} onClick={loadHistory}>
-          📋 View My Attendance History
-        </button>
-
-        {showHistory && (
-          <div style={styles.card}>
-            <h3 style={styles.cardTitle}>My Attendance History</h3>
-            {history.length === 0 ? (
-              <p style={styles.hint}>No attendance records found.</p>
-            ) : (
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>Course</th>
-                    <th style={styles.th}>Code</th>
-                    <th style={styles.th}>Date & Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.map((row, i) => (
-                    <tr key={i} style={i % 2 === 0 ? styles.rowEven : styles.rowOdd}>
-                      <td style={styles.td}>{row.course_name}</td>
-                      <td style={styles.td}>{row.course_code}</td>
-                      <td style={styles.td}>{new Date(row.marked_at).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+      <div className="card">
+        <div className="scanner">
+          <video ref={videoRef} playsInline muted style={{ display: camOn ? 'block' : 'none' }} />
+          {camOn ? (
+            <>
+              <div className="frame" />
+              <div className="laser" />
+            </>
+          ) : (
+            <div className="scanner-placeholder">
+              <div>
+                <Icon name="camera" size={44} />
+                {canDetect ? (
+                  <>
+                    <p className="mt-1 mb-2">Tap below to open your camera</p>
+                    <button className="btn btn-primary btn-lg" onClick={startCamera}><Icon name="scan" /> Start scanning</button>
+                  </>
+                ) : (
+                  <p className="mt-1 small" style={{ maxWidth: 280 }}>
+                    Open your phone’s <b>Camera app</b> and point it at the QR — it opens QRoll and marks you present automatically.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        {camOn && (
+          <div className="row mt-2" style={{ justifyContent: 'center' }}>
+            <button className="btn btn-secondary" onClick={stopCamera}><Icon name="x" /> Stop camera</button>
           </div>
         )}
+        {camError && <div className="mt-2"><Alert>{camError}</Alert></div>}
+
+        <div className="divider">or enter the code</div>
+        <form onSubmit={(e) => { e.preventDefault(); submit(code.trim()); }}>
+          <div className="field">
+            <input
+              className="input mono" placeholder="Paste the session link or code"
+              value={code} onChange={(e) => setCode(e.target.value)}
+            />
+            <span className="hint">Your teacher can share the link from their screen.</span>
+          </div>
+          <button className="btn btn-primary btn-block" disabled={!code.trim()}><Icon name="check" /> Mark attendance</button>
+        </form>
       </div>
-    </div>
+    </main>
   );
 }
-
-const styles = {
-  container: { maxWidth: '600px', margin: '40px auto', padding: '0 20px' },
-  heading: { color: '#1F3864', marginBottom: '24px' },
-  card: {
-    backgroundColor: '#fff', padding: '24px',
-    borderRadius: '12px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-    marginBottom: '24px',
-  },
-  cardTitle: { color: '#2E75B6', marginBottom: '12px' },
-  hint: { color: '#888', fontSize: '13px', marginBottom: '12px' },
-  input: {
-    width: '100%', padding: '10px', marginBottom: '12px',
-    borderRadius: '8px', border: '1px solid #ddd',
-    fontSize: '14px', boxSizing: 'border-box',
-  },
-  button: {
-    width: '100%', padding: '12px', backgroundColor: '#27ae60',
-    color: '#fff', border: 'none', borderRadius: '8px',
-    fontSize: '15px', cursor: 'pointer',
-  },
-  historyBtn: {
-    width: '100%', padding: '12px', backgroundColor: '#2E75B6',
-    color: '#fff', border: 'none', borderRadius: '8px',
-    fontSize: '15px', cursor: 'pointer', marginBottom: '24px',
-  },
-  success: { color: 'green', marginTop: '8px', fontWeight: 'bold' },
-  error: { color: 'red', marginTop: '8px' },
-  table: { width: '100%', borderCollapse: 'collapse' },
-  th: {
-    backgroundColor: '#2E75B6', color: '#fff',
-    padding: '10px', textAlign: 'left', fontSize: '13px',
-  },
-  td: { padding: '10px', fontSize: '13px' },
-  rowEven: { backgroundColor: '#f9f9f9' },
-  rowOdd: { backgroundColor: '#fff' },
-};
 
 export default Scanner;

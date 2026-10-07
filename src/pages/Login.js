@@ -1,95 +1,79 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import API from '../api/axios';
+import { Link, useLocation } from 'react-router-dom';
+import Icon from '../components/Icon';
+import { Alert, Spinner } from '../components/ui';
+import { errorMessage } from '../api/axios';
+import { useAuth } from '../auth';
+import AuthLayout from './AuthLayout';
 
 function Login() {
+  const { login } = useAuth();
+  const location = useLocation();
+  const next = new URLSearchParams(location.search).get('next') || '';
+  const fromScan = next.startsWith('/scan');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [show, setShow] = useState(false);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setError('');
+    setBusy(true);
     try {
-      const res = await API.post('/auth/login', { email, password });
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('role', res.data.user.role);
-      localStorage.setItem('name', res.data.user.name);
-      localStorage.setItem('user_id', res.data.user.id);
-
-      if (res.data.user.role === 'teacher' || res.data.user.role === 'admin') {
-        navigate('/dashboard');
-      } else {
-        navigate('/scan');
-      }
+      // On success the auth context updates and GuestOnly redirects (to `next` if present).
+      await login(email.trim(), password);
     } catch (err) {
-      setError('Invalid email or password');
+      setError(errorMessage(err, 'Login failed, please try again'));
+      setBusy(false);
     }
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>QRoll</h1>
-        <p style={styles.subtitle}>Smart Attendance System</p>
-        {error && <p style={styles.error}>{error}</p>}
-        <form onSubmit={handleLogin}>
-          <input
-            style={styles.input}
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            style={styles.input}
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <button style={styles.button} type="submit">Login</button>
-        </form>
+    <AuthLayout>
+      <h1>Welcome back 👋</h1>
+      <p className="sub">Log in to your QRoll account.</p>
 
-        <p style={styles.registerLink}>
-          New student?{' '}
-          <span style={styles.link} onClick={() => navigate('/register')}>
-            Create an account
-          </span>
-        </p>
-      </div>
-    </div>
+      {fromScan && <Alert type="info">Log in to mark your attendance — you’ll be checked in right after.</Alert>}
+      <Alert>{error}</Alert>
+
+      <form onSubmit={handleLogin}>
+        <div className="field">
+          <label htmlFor="email">Email</label>
+          <div className="input-wrap">
+            <Icon name="at" />
+            <input
+              id="email" className="input" type="email" placeholder="you@university.edu"
+              value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" autoFocus
+            />
+          </div>
+        </div>
+        <div className="field">
+          <label htmlFor="password">Password</label>
+          <div className="input-wrap">
+            <Icon name="lock" />
+            <input
+              id="password" className="input" type={show ? 'text' : 'password'} placeholder="Your password"
+              value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password"
+            />
+            <button type="button" className="icon-btn trail" style={{ border: 0, background: 'none' }}
+              onClick={() => setShow(!show)} aria-label={show ? 'Hide password' : 'Show password'}>
+              <Icon name={show ? 'eyeOff' : 'eye'} />
+            </button>
+          </div>
+        </div>
+        <button className="btn btn-primary btn-lg btn-block mt-1" type="submit" disabled={busy}>
+          {busy ? <><Spinner /> Logging in…</> : <>Log in <Icon name="arrowRight" /></>}
+        </button>
+      </form>
+
+      <p className="switch">
+        New to QRoll? <Link to={`/register${location.search}`}>Create an account</Link>
+      </p>
+    </AuthLayout>
   );
 }
-
-const styles = {
-  container: {
-    display: 'flex', justifyContent: 'center',
-    alignItems: 'center', height: '100vh',
-    backgroundColor: '#f0f4f8',
-  },
-  card: {
-    backgroundColor: '#fff', padding: '40px',
-    borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-    width: '100%', maxWidth: '400px', textAlign: 'center',
-  },
-  title: { fontSize: '36px', color: '#1F3864', marginBottom: '4px' },
-  subtitle: { color: '#888', marginBottom: '24px' },
-  input: {
-    width: '100%', padding: '12px', marginBottom: '16px',
-    borderRadius: '8px', border: '1px solid #ddd',
-    fontSize: '14px', boxSizing: 'border-box',
-  },
-  button: {
-    width: '100%', padding: '12px', backgroundColor: '#2E75B6',
-    color: '#fff', border: 'none', borderRadius: '8px',
-    fontSize: '16px', cursor: 'pointer',
-  },
-  error: { color: 'red', marginBottom: '12px' },
-  registerLink: { marginTop: '20px', color: '#888', fontSize: '14px' },
-  link: { color: '#2E75B6', cursor: 'pointer', fontWeight: 'bold' },
-};
 
 export default Login;

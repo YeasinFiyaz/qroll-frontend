@@ -1,153 +1,182 @@
 import React, { useState } from 'react';
-import { QRCodeCanvas } from 'qrcode.react';
-import Navbar from '../components/Navbar';
-import API from '../api/axios';
+import { Link, useNavigate } from 'react-router-dom';
+import Icon from '../components/Icon';
+import StartSession from '../components/StartSession';
+import SessionRoster from '../components/SessionRoster';
+import {
+  Stat, Empty, Loading, Alert, Progress, PctCell, useFetch, greeting, fmtPct, timeAgo, fmtTime,
+} from '../components/ui';
+import API, { errorMessage } from '../api/axios';
+import { useAuth } from '../auth';
 
 function TeacherDashboard() {
-  const [courseId, setCourseId] = useState('');
-  const [expiry, setExpiry] = useState(10);
-  const [session, setSession] = useState(null);
-  const [error, setError] = useState('');
-  const [liveCount, setLiveCount] = useState(0);
-  const [closed, setClosed] = useState(false);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [rosterId, setRosterId] = useState(null);
 
-  const startSession = async () => {
-    setError('');
-    try {
-      const res = await API.post('/sessions/start', {
-        course_id: parseInt(courseId),
-        expiry_minutes: parseInt(expiry),
-      });
-      setSession(res.data);
-      setClosed(false);
-      setLiveCount(0);
-      startLiveCounter(res.data.session_id);
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to start session');
-    }
-  };
+  const { data, loading, error, reload } = useFetch(async () => {
+    const [overview, courses, active, history, low] = await Promise.all([
+      API.get('/reports/overview', { params: { tz: -new Date().getTimezoneOffset() } }),
+      API.get('/courses/my-courses'),
+      API.get('/sessions/active'),
+      API.get('/sessions/history'),
+      API.get('/reports/low-attendance'),
+    ]);
+    return {
+      overview: overview.data, courses: courses.data, active: active.data,
+      history: history.data.filter((s) => !s.is_live).slice(0, 8), low: low.data.slice(0, 6),
+    };
+  }, []);
 
-  const startLiveCounter = (session_id) => {
-    const interval = setInterval(async () => {
-      try {
-        const res = await API.get(`/sessions/${session_id}/live`);
-        setLiveCount(res.data.count);
-      } catch (err) {}
-    }, 3000);
-    setTimeout(() => clearInterval(interval), 30 * 60 * 1000);
-  };
-
-  const closeSession = async () => {
-    try {
-      await API.put(`/sessions/${session.session_id}/close`);
-      setClosed(true);
-    } catch (err) {}
-  };
+  const firstName = user?.name?.split(' ')[0] || '';
 
   return (
-    <div>
-      <Navbar />
-      <div style={styles.container}>
-        <h2 style={styles.heading}>Teacher Dashboard</h2>
-
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Start Attendance Session</h3>
-          <input
-            style={styles.input}
-            type="number"
-            placeholder="Course ID (e.g. 1)"
-            value={courseId}
-            onChange={(e) => setCourseId(e.target.value)}
-          />
-          <select
-            style={styles.input}
-            value={expiry}
-            onChange={(e) => setExpiry(e.target.value)}
-          >
-            <option value={5}>5 minutes</option>
-            <option value={10}>10 minutes</option>
-            <option value={15}>15 minutes</option>
-            <option value={30}>30 minutes</option>
-          </select>
-          <button style={styles.button} onClick={startSession}>
-            Generate QR Code
-          </button>
-          {error && <p style={styles.error}>{error}</p>}
-        </div>
-
-        {session && (
-          <div style={styles.card}>
-            <h3 style={styles.cardTitle}>Active Session</h3>
-            <p style={styles.meta}>Session ID: <b>{session.session_id}</b></p>
-            <p style={styles.meta}>
-              Expires at: <b>{new Date(session.expires_at).toLocaleTimeString()}</b>
-            </p>
-            <p style={styles.liveCount}>
-              Students Scanned: <b>{liveCount}</b>
-            </p>
-            {!closed ? (
-              <>
-                <div style={styles.qrContainer}>
-                  <QRCodeCanvas value={session.scan_url} size={220} />
-                </div>
-                <p style={styles.scanUrl}>{session.scan_url}</p>
-                <button style={styles.closeBtn} onClick={closeSession}>
-                  Close Session
-                </button>
-              </>
-            ) : (
-              <p style={styles.closedMsg}>Session has been closed.</p>
-            )}
+    <main className="page">
+      <section className="hero">
+        <div className="row wrap" style={{ justifyContent: 'space-between', gap: 18 }}>
+          <div>
+            <h1>{greeting()}, {firstName} 👋</h1>
+            <p>Start a QR session, watch students check in live, and track attendance across your courses.</p>
           </div>
-        )}
-      </div>
-    </div>
+          <Link to="/courses" className="btn btn-white"><Icon name="plus" /> New course</Link>
+        </div>
+      </section>
+
+      {loading && <Loading label="Loading your dashboard…" />}
+      {error && <Alert>{errorMessage(error)} <button className="btn btn-sm btn-secondary" onClick={reload}>Retry</button></Alert>}
+
+      {data && (
+        <>
+          <div className="stats">
+            <Stat icon="book" tone="brand" value={data.overview.courses} label="Courses" />
+            <Stat icon="users" tone="info" value={data.overview.students} label="Students" />
+            <Stat icon="qr" tone="warning" value={data.overview.sessions} label="Sessions held" />
+            <Stat icon="chart" tone="success" value={data.overview.avg_attendance === null ? '—' : fmtPct(data.overview.avg_attendance)} label="Avg. attendance" />
+            <Stat icon="checkCircle" tone="success" value={data.overview.scans_today} label="Check-ins today" />
+          </div>
+
+          <div className="grid grid-main">
+            <div className="stack">
+              {data.active.length > 0 && (
+                <div className="card">
+                  <div className="card-head">
+                    <h3><span className="badge success"><span className="live-dot" /> LIVE</span> Running sessions</h3>
+                  </div>
+                  <div className="list">
+                    {data.active.map((s) => (
+                      <div key={s.session_id} className="list-item clickable" onClick={() => navigate(`/session/${s.session_id}`)}>
+                        <div className="stat-icon tone-success"><Icon name="qr" /></div>
+                        <div className="grow">
+                          <div className="title">{s.course_code} · {s.course_name}</div>
+                          <div className="meta">Ends at {fmtTime(s.expires_at)} · {s.present_count} checked in</div>
+                        </div>
+                        <span className="btn btn-sm btn-secondary">Open <Icon name="arrowRight" size={15} /></span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="card">
+                <div className="card-head"><h3><Icon name="play" /> Start attendance</h3></div>
+                {data.courses.length === 0 ? (
+                  <Empty
+                    icon="book" title="Create your first course"
+                    text="You need a course before you can start an attendance session."
+                    action={<Link to="/courses" className="btn btn-primary"><Icon name="plus" /> Create course</Link>}
+                  />
+                ) : (
+                  <StartSession courses={data.courses} />
+                )}
+              </div>
+
+              <div className="card flush">
+                <div className="card-head">
+                  <h3><Icon name="history" /> Recent sessions</h3>
+                  <Link to="/reports" className="small bold">All reports →</Link>
+                </div>
+                {data.history.length === 0 ? (
+                  <Empty icon="history" title="No sessions yet" text="Sessions you run will appear here." />
+                ) : (
+                  <div className="table-wrap">
+                    <table className="table">
+                      <thead><tr><th>Course</th><th>When</th><th>Present</th></tr></thead>
+                      <tbody>
+                        {data.history.map((s) => {
+                          const pct = s.enrolled_count ? (s.present_count * 100) / s.enrolled_count : 0;
+                          return (
+                            <tr key={s.session_id} className="clickable" onClick={() => setRosterId(s.session_id)}>
+                              <td><b>{s.course_code}</b> <span className="muted small">{s.course_name}</span></td>
+                              <td className="muted small">{timeAgo(s.created_at)}</td>
+                              <td style={{ minWidth: 160 }}>
+                                <div className="pct-cell">
+                                  <Progress value={pct} />
+                                  <b className="text-2">{s.present_count}/{s.enrolled_count}</b>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="stack">
+              <div className="card">
+                <div className="card-head">
+                  <h3><Icon name="book" /> My courses</h3>
+                  <Link to="/courses" className="small bold">Manage →</Link>
+                </div>
+                {data.courses.length === 0 ? (
+                  <p className="muted small">No courses yet.</p>
+                ) : (
+                  <div className="list">
+                    {data.courses.slice(0, 6).map((c) => (
+                      <Link key={c.course_id} to={`/courses/${c.course_id}`} className="list-item" style={{ color: 'inherit' }}>
+                        <span className="badge brand">{c.course_code}</span>
+                        <div className="grow">
+                          <div className="title truncate">{c.course_name}</div>
+                          <div className="meta">{c.student_count} students · {c.session_count} sessions</div>
+                        </div>
+                        <Icon name="arrowRight" size={16} className="muted" />
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="card">
+                <div className="card-head">
+                  <h3><Icon name="alert" style={{ color: 'var(--danger)' }} /> Needs attention</h3>
+                  <span className="sub">below {data.overview.threshold}%</span>
+                </div>
+                {data.low.length === 0 ? (
+                  <p className="muted small">Everyone is above {data.overview.threshold}% — great job! 🎉</p>
+                ) : (
+                  <div className="list">
+                    {data.low.map((s, i) => (
+                      <div key={i} className="list-item">
+                        <div className="grow">
+                          <div className="title truncate">{s.name}</div>
+                          <div className="meta">{s.course_code} · {s.attended_sessions}/{s.total_sessions} classes</div>
+                        </div>
+                        <div style={{ width: 120 }}><PctCell value={s.percentage} total={s.total_sessions} /></div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {rosterId && <SessionRoster sessionId={rosterId} onClose={() => setRosterId(null)} />}
+    </main>
   );
 }
-
-const styles = {
-  container: { maxWidth: '600px', margin: '40px auto', padding: '0 20px' },
-  heading: { color: '#1F3864', marginBottom: '24px' },
-  card: {
-    backgroundColor: '#fff', padding: '24px',
-    borderRadius: '12px', boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-    marginBottom: '24px',
-  },
-  cardTitle: { color: '#2E75B6', marginBottom: '16px' },
-  input: {
-    width: '100%', padding: '10px', marginBottom: '12px',
-    borderRadius: '8px', border: '1px solid #ddd',
-    fontSize: '14px', boxSizing: 'border-box',
-  },
-  button: {
-    width: '100%', padding: '12px', backgroundColor: '#2E75B6',
-    color: '#fff', border: 'none', borderRadius: '8px',
-    fontSize: '15px', cursor: 'pointer',
-  },
-  closeBtn: {
-    width: '100%', padding: '12px', backgroundColor: '#c0392b',
-    color: '#fff', border: 'none', borderRadius: '8px',
-    fontSize: '15px', cursor: 'pointer', marginTop: '12px',
-  },
-  error: { color: 'red', marginTop: '8px' },
-  meta: { color: '#555', marginBottom: '6px' },
-  liveCount: {
-    fontSize: '18px', color: '#1F3864',
-    margin: '12px 0', fontWeight: '500',
-  },
-  qrContainer: {
-    display: 'flex', justifyContent: 'center',
-    margin: '20px 0', padding: '20px',
-    backgroundColor: '#f9f9f9', borderRadius: '8px',
-  },
-  scanUrl: {
-    textAlign: 'center', color: '#888',
-    fontSize: '12px', wordBreak: 'break-all',
-  },
-  closedMsg: {
-    color: 'green', fontWeight: 'bold',
-    textAlign: 'center', marginTop: '12px',
-  },
-};
 
 export default TeacherDashboard;

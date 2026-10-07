@@ -1,233 +1,99 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import API from '../api/axios';
+import { Link, useLocation } from 'react-router-dom';
+import Icon from '../components/Icon';
+import { Alert, Spinner } from '../components/ui';
+import { errorMessage } from '../api/axios';
+import { useAuth } from '../auth';
+import AuthLayout from './AuthLayout';
 
 function Register() {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [role, setRole] = useState('student');
+  const { register } = useAuth();
+  const location = useLocation();
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '', role: 'student' });
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
-
-    if (password !== confirm) {
-      return setError('Passwords do not match');
-    }
-    if (password.length < 6) {
-      return setError('Password must be at least 6 characters');
-    }
-
+    if (form.password.length < 6) return setError('Password must be at least 6 characters');
+    if (form.password !== form.confirm) return setError('Passwords do not match');
+    setBusy(true);
     try {
-      await API.post('/auth/register', {
-        name: name,
-        email: email,
-        password: password,
-        role: role,
+      // Registration logs the user straight in; GuestOnly then redirects.
+      await register({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        password: form.password,
+        role: form.role,
       });
-      setSuccess('Account created! Redirecting to login...');
-      setTimeout(() => navigate('/'), 2000);
     } catch (err) {
-      setError(err.response?.data?.error || 'Registration failed');
+      setError(errorMessage(err, 'Registration failed, please try again'));
+      setBusy(false);
     }
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>QRoll</h1>
-        <p style={styles.subtitle}>Create an Account</p>
+    <AuthLayout>
+      <h1>Create your account</h1>
+      <p className="sub">It takes less than a minute.</p>
+      <Alert>{error}</Alert>
 
-        {error && <p style={styles.error}>{error}</p>}
-        {success && <p style={styles.success}>{success}</p>}
-
-        <form onSubmit={handleRegister}>
-          <input
-            style={styles.input}
-            type="text"
-            placeholder="Full Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-          <input
-            style={styles.input}
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            style={styles.input}
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <input
-            style={styles.input}
-            type="password"
-            placeholder="Confirm Password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            required
-          />
-
-          <div style={styles.roleContainer}>
-            <p style={styles.roleLabel}>I am a:</p>
-            <div style={styles.roleButtons}>
+      <form onSubmit={handleRegister}>
+        <div className="field">
+          <label>I am a</label>
+          <div className="role-pick">
+            {[
+              { v: 'student', icon: 'cap', t: 'Student', d: 'Scan QR to mark attendance' },
+              { v: 'teacher', icon: 'users', t: 'Teacher', d: 'Create courses & sessions' },
+            ].map((r) => (
               <button
-                type="button"
-                style={role === 'student' ? styles.roleBtnActive : styles.roleBtn}
-                onClick={() => setRole('student')}
+                type="button" key={r.v} className={`role-opt${form.role === r.v ? ' on' : ''}`}
+                onClick={() => setForm({ ...form, role: r.v })}
               >
-                Student
+                <span className="ri"><Icon name={r.icon} /></span>
+                <b>{r.t}</b>
+                <span>{r.d}</span>
               </button>
-              <button
-                type="button"
-                style={role === 'teacher' ? styles.roleBtnActiveTeacher : styles.roleBtn}
-                onClick={() => setRole('teacher')}
-              >
-                Teacher
-              </button>
-            </div>
+            ))}
           </div>
+        </div>
+        <div className="field">
+          <label htmlFor="name">Full name</label>
+          <div className="input-wrap">
+            <Icon name="user" />
+            <input id="name" className="input" placeholder="e.g. Rahim Uddin" value={form.name} onChange={set('name')} required autoComplete="name" />
+          </div>
+        </div>
+        <div className="field">
+          <label htmlFor="email">Email</label>
+          <div className="input-wrap">
+            <Icon name="at" />
+            <input id="email" className="input" type="email" placeholder="you@university.edu" value={form.email} onChange={set('email')} required autoComplete="email" />
+          </div>
+        </div>
+        <div className="grid grid-2" style={{ gap: 12 }}>
+          <div className="field">
+            <label htmlFor="password">Password</label>
+            <input id="password" className="input" type="password" placeholder="6+ characters" value={form.password} onChange={set('password')} required autoComplete="new-password" />
+          </div>
+          <div className="field">
+            <label htmlFor="confirm">Confirm</label>
+            <input id="confirm" className="input" type="password" placeholder="Repeat password" value={form.confirm} onChange={set('confirm')} required autoComplete="new-password" />
+          </div>
+        </div>
+        <button className="btn btn-primary btn-lg btn-block mt-1" type="submit" disabled={busy}>
+          {busy ? <><Spinner /> Creating account…</> : <>Create account <Icon name="arrowRight" /></>}
+        </button>
+      </form>
 
-          <button style={styles.button} type="submit">
-            Create Account
-          </button>
-        </form>
-
-        <p style={styles.loginLink}>
-          Already have an account?{' '}
-          <span style={styles.link} onClick={() => navigate('/')}>
-            Login here
-          </span>
-        </p>
-      </div>
-    </div>
+      <p className="switch">
+        Already have an account? <Link to={`/login${location.search}`}>Log in</Link>
+      </p>
+    </AuthLayout>
   );
 }
-
-const styles = {
-  container: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '100vh',
-    backgroundColor: '#f0f4f8',
-  },
-  card: {
-    backgroundColor: '#fff',
-    padding: '40px',
-    borderRadius: '12px',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-    width: '100%',
-    maxWidth: '400px',
-    textAlign: 'center',
-  },
-  title: {
-    fontSize: '36px',
-    color: '#1F3864',
-    marginBottom: '4px',
-  },
-  subtitle: {
-    color: '#888',
-    marginBottom: '24px',
-  },
-  input: {
-    width: '100%',
-    padding: '12px',
-    marginBottom: '16px',
-    borderRadius: '8px',
-    border: '1px solid #ddd',
-    fontSize: '14px',
-    boxSizing: 'border-box',
-  },
-  roleContainer: {
-    marginBottom: '20px',
-    textAlign: 'left',
-  },
-  roleLabel: {
-    fontSize: '13px',
-    fontWeight: '600',
-    color: '#444',
-    marginBottom: '8px',
-  },
-  roleButtons: {
-    display: 'flex',
-    gap: '10px',
-  },
-  roleBtn: {
-    flex: 1,
-    padding: '10px',
-    borderRadius: '8px',
-    fontSize: '14px',
-    cursor: 'pointer',
-    fontWeight: '600',
-    backgroundColor: '#f0f4f8',
-    color: '#555',
-    border: '2px solid #ddd',
-  },
-  roleBtnActive: {
-    flex: 1,
-    padding: '10px',
-    borderRadius: '8px',
-    fontSize: '14px',
-    cursor: 'pointer',
-    fontWeight: '600',
-    backgroundColor: '#2E75B6',
-    color: '#fff',
-    border: '2px solid #2E75B6',
-  },
-  roleBtnActiveTeacher: {
-    flex: 1,
-    padding: '10px',
-    borderRadius: '8px',
-    fontSize: '14px',
-    cursor: 'pointer',
-    fontWeight: '600',
-    backgroundColor: '#1F3864',
-    color: '#fff',
-    border: '2px solid #1F3864',
-  },
-  button: {
-    width: '100%',
-    padding: '12px',
-    backgroundColor: '#27ae60',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '16px',
-    cursor: 'pointer',
-  },
-  error: {
-    color: 'red',
-    marginBottom: '12px',
-  },
-  success: {
-    color: 'green',
-    marginBottom: '12px',
-    fontWeight: 'bold',
-  },
-  loginLink: {
-    marginTop: '20px',
-    color: '#888',
-    fontSize: '14px',
-  },
-  link: {
-    color: '#2E75B6',
-    cursor: 'pointer',
-    fontWeight: 'bold',
-  },
-};
 
 export default Register;
