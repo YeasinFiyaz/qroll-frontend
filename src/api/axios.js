@@ -1,7 +1,11 @@
 import axios from 'axios';
 
-export const API_URL = (process.env.REACT_APP_API_URL || 'https://qroll-backend-five.vercel.app/api/v1')
-  .replace(/\/$/, '');
+// In production the API is reached through the site's own domain (/api/… is
+// proxied to the backend by vercel.json), so the browser needs only one
+// connection and no CORS preflight. Local dev talks to the backend directly.
+const LIVE_API = 'https://qroll-backend-five.vercel.app/api/v1';
+const isLocal = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname);
+export const API_URL = (process.env.REACT_APP_API_URL || (isLocal ? LIVE_API : '/api/v1')).replace(/\/$/, '');
 
 const API = axios.create({
   baseURL: API_URL,
@@ -35,7 +39,7 @@ let pending = 0;
 let slowTimer = null;
 function begin() {
   pending += 1;
-  if (!slowTimer) slowTimer = setTimeout(() => { if (pending > 0) setStatus('waking'); }, 5000);
+  if (!slowTimer) slowTimer = setTimeout(() => { if (pending > 0) setStatus('waking'); }, 6000);
 }
 function end() {
   pending = Math.max(0, pending - 1);

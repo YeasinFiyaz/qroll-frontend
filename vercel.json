@@ -1,5 +1,9 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://qroll-backend-five.vercel.app/api/$1" },
+    { "source": "/health", "destination": "https://qroll-backend-five.vercel.app/health" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/static/(.*)",
