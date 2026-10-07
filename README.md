@@ -1,70 +1,60 @@
-# Getting Started with Create React App
+# QRoll — Smart QR Attendance (frontend)
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+QRoll turns every class into a one-scan check-in. Teachers show a QR code, students
+scan it with their phone, and attendance is recorded instantly.
 
-## Available Scripts
+**Live app:** https://helloqroll.vercel.app
+**API:** https://qroll-backend-five.vercel.app ([backend repo](https://github.com/YeasinFiyaz/qroll-backend))
 
-In the project directory, you can run:
+## Features
 
-### `npm start`
+**Teachers**
+- Dashboard with course, student, session and attendance stats
+- Create courses, enrol students by email (single or bulk), remove students, rename or delete a course
+- Start a timed attendance session: big QR code, countdown, projector mode, live list of who has checked in
+- Session roster (present / absent) and CSV export
+- Reports per course with date ranges, search, low-attendance filter and email alerts
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+**Students**
+- Scan the QR with the phone camera (in-app scanner or the phone's camera app) — attendance is marked automatically after login
+- Home page with per-course attendance percentage and overall ring
+- Full check-in history with CSV export
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+**General**
+- Works on phones (bottom navigation) and desktops, light and dark mode
+- Keeps working while a sleeping API wakes up (auto-retry + status banner)
+- Profile page with password change
 
-### `npm test`
+## Tech
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+React 19 (Create React App), React Router 7, Axios, `qrcode.react`. No UI framework —
+hand-written CSS with design tokens in `src/index.css` and components in `src/App.css`.
 
-### `npm run build`
+```
+src/
+  api/axios.js        API client with retry, auth header and server-status events
+  auth.js             login state (context) and role-based home routes
+  components/         Navbar, Icon set, Backdrop art, shared UI (modals, toasts, tables…)
+  pages/              Login, Register, TeacherDashboard, LiveSession, Courses, CourseDetail,
+                      Reports, StudentHome, Scanner, History, Profile
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Run locally
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+npm install
+REACT_APP_API_URL=http://localhost:5000/api/v1 npm start   # or omit to use the live API
+npm test
+npm run build
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Environment variables:
 
-### `npm run eject`
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `REACT_APP_API_URL` | Base URL of the QRoll API (`…/api/v1`) | live Vercel backend |
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## Deploy
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Hosted on Vercel. Every push to `main` is deployed automatically. `vercel.json`
+rewrites all routes to `index.html` so deep links (e.g. `/scan?t=…`) work.
