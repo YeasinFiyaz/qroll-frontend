@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import Icon from '../components/Icon';
 import { Brand } from '../components/Navbar';
 import { ServerBanner } from '../components/ui';
+import Backdrop from '../components/Backdrop';
 
 const FEATURES = [
   { icon: 'zap', title: 'Attendance in seconds', text: 'Show a QR, students scan, done.' },
@@ -16,6 +17,7 @@ function AuthLayout({ children }) {
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50 }}><ServerBanner /></div>
       <div className="auth">
         <aside className="auth-art">
+          <Backdrop tone="light" inset />
           <div className="brand"><span className="brand-mark"><Icon name="qr" size={19} stroke={2.4} /></span>QRoll</div>
           <div>
             <h2>Smart attendance, without the roll call.</h2>
@@ -35,6 +37,7 @@ function AuthLayout({ children }) {
           </div>
         </aside>
         <main className="auth-form">
+          <Backdrop inset />
           <div className="auth-card">
             <div className="auth-mobile-brand"><Brand /></div>
             {children}

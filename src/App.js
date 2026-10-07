@@ -5,6 +5,7 @@ import { AuthProvider, useAuth, homeFor } from './auth';
 import { ToastProvider } from './components/ui';
 import { warmUp } from './api/axios';
 import Navbar from './components/Navbar';
+import Backdrop from './components/Backdrop';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import TeacherDashboard from './pages/TeacherDashboard';
@@ -29,6 +30,7 @@ function RequireAuth({ role }) {
   if (role === 'student' && user.role !== 'student') return <Navigate to="/dashboard" replace />;
   return (
     <div className="app-shell">
+      <Backdrop />
       <Navbar />
       <Outlet />
     </div>
