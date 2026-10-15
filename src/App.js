@@ -56,7 +56,9 @@ function GuestOnly({ children }) {
   const location = useLocation();
   if (user) {
     const next = new URLSearchParams(location.search).get('next');
-    return <Navigate to={next && next.startsWith('/') ? next : homeFor(user)} replace />;
+    // Only same-site paths: "//host" or "/\host" would crash the router (blank page).
+    const safe = next && next.startsWith('/') && !/^\/[/\\]/.test(next);
+    return <Navigate to={safe ? next : homeFor(user)} replace />;
   }
   return children;
 }
