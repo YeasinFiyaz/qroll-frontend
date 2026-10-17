@@ -70,7 +70,12 @@ API.interceptors.response.use(
     // Gateway errors, or a request that never reached the server, mean it is asleep
     // or restarting: retry with backoff. Writes are only retried when we know the
     // server did not process them, so nothing gets created twice.
-    const transient = code === 502 || code === 503 || code === 504
+    // A 502/503 that carries our own API's error message (e.g. "Email is not set
+    // up") is a final answer, not a sleeping server — show it straight away.
+    // Only "Server is busy" from the API is worth retrying.
+    const apiError = error.response?.data?.error;
+    const finalAnswer = typeof apiError === 'string' && !/busy/i.test(apiError);
+    const transient = ((code === 502 || code === 503 || code === 504) && !finalAnswer)
       || (!error.response && (isGet || error.code === 'ERR_NETWORK'));
     if (transient && !cfg.noRetry && (cfg.__retries || 0) < MAX_RETRIES) {
       cfg.__retries = (cfg.__retries || 0) + 1;
